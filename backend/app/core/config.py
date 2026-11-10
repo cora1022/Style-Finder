@@ -28,12 +28,6 @@ def _get_list(name: str, default: list[str]) -> list[str]:
 
 @dataclass(frozen=True)
 class Settings:
-    qdrant_url: str | None = field(default_factory=lambda: os.getenv("QDRANT_URL") or None)
-    qdrant_host: str = field(default_factory=lambda: os.getenv("QDRANT_HOST", "localhost"))
-    qdrant_port: int = field(default_factory=lambda: _get_int("QDRANT_PORT", 6333))
-    qdrant_collection_name: str = field(
-        default_factory=lambda: os.getenv("QDRANT_COLLECTION_NAME", "fashion_catalog_v1")
-    )
     catalog_index_path: Path = field(
         default_factory=lambda: Path(
             os.getenv("CATALOG_INDEX_PATH", str(ROOT_DIR / "catalog/generated/embeddings.npz"))
