@@ -19,6 +19,8 @@ backend/.env
 saved_cropped_images_fashionclip/
 catalog_images/
 catalog/manifest.json
+catalog/generated/
+docker-compose.local.yml
 catalog/images/*
 !catalog/images/.gitkeep
 qdrant_storage/
