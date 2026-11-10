@@ -12,7 +12,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.cora.stylefinder.member.activity.SavedResultRepository;
 import com.cora.stylefinder.member.activity.SearchHistoryRepository;
+import com.cora.stylefinder.member.auth.AuthService;
 import com.cora.stylefinder.member.auth.RefreshTokenRepository;
+import com.cora.stylefinder.member.auth.dto.LoginRequest;
 import com.cora.stylefinder.member.member.UserRepository;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -32,6 +34,7 @@ import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -56,6 +59,7 @@ class MemberApiIntegrationTest {
   @Autowired RefreshTokenRepository refreshTokens;
   @Autowired SearchHistoryRepository histories;
   @Autowired SavedResultRepository savedResults;
+  @Autowired AuthService auth;
 
   @DynamicPropertySource
   static void jwtProperties(DynamicPropertyRegistry registry) {
@@ -69,6 +73,29 @@ class MemberApiIntegrationTest {
     histories.deleteAll();
     refreshTokens.deleteAll();
     users.deleteAll();
+  }
+
+  @Test
+  void googleLoginCreatesOneIdentityAndRejectsUnverifiedEmailAndAutomaticLinking()
+      throws Exception {
+    auth.googleLogin("google-subject", "google@example.com", true, "Google 사용자");
+    auth.googleLogin("google-subject", "google@example.com", true, "Google 사용자");
+    assertTrue(users.count() == 1);
+    Assertions.assertNull(
+        users.findByGoogleSubject("google-subject").orElseThrow().getPasswordHash());
+    Assertions.assertThrows(
+        com.cora.stylefinder.member.common.ApiException.class,
+        () -> auth.login(new LoginRequest("google@example.com", "password123")));
+    Assertions.assertThrows(
+        com.cora.stylefinder.member.common.ApiException.class,
+        () -> auth.googleLogin("unverified", "unverified@example.com", false, "이름"));
+    signup("local@example.com").andExpect(status().isCreated());
+    var conflict =
+        Assertions.assertThrows(
+            com.cora.stylefinder.member.common.ApiException.class,
+            () -> auth.googleLogin("another-subject", "local@example.com", true, "이름"));
+    Assertions.assertEquals("GOOGLE_EMAIL_CONFLICT", conflict.code());
+    assertTrue(users.count() == 2);
   }
 
   @Test

@@ -22,8 +22,11 @@ public class User {
   @Column(nullable = false, unique = true)
   private String email;
 
-  @Column(name = "password_hash", nullable = false)
+  @Column(name = "password_hash")
   private String passwordHash;
+
+  @Column(name = "google_subject", unique = true)
+  private String googleSubject;
 
   @Column(name = "display_name", nullable = false)
   private String displayName;
@@ -44,6 +47,12 @@ public class User {
     this.email = email;
     this.passwordHash = passwordHash;
     this.displayName = displayName;
+  }
+
+  public static User google(String subject, String email, String displayName) {
+    User user = new User(email, null, displayName);
+    user.googleSubject = subject;
+    return user;
   }
 
   @PrePersist

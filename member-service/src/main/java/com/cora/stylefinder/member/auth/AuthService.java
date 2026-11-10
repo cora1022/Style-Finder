@@ -58,10 +58,35 @@ public class AuthService {
     validatePasswordBytes(request.password());
     User user =
         users.findByEmail(normalizeEmail(request.email())).orElseThrow(this::invalidCredentials);
-    if (!encoder.matches(request.password(), user.getPasswordHash())) {
+    if (user.getPasswordHash() == null
+        || !encoder.matches(request.password(), user.getPasswordHash())) {
       throw invalidCredentials();
     }
     return issue(user);
+  }
+
+  public IssuedTokens googleLogin(
+      String subject, String email, Boolean emailVerified, String name) {
+    if (subject == null
+        || subject.isBlank()
+        || subject.length() > 255
+        || !Boolean.TRUE.equals(emailVerified)
+        || email == null
+        || email.isBlank()
+        || email.length() > 254) {
+      throw new ApiException(
+          "GOOGLE_IDENTITY_INVALID", "Google 계정 정보를 확인할 수 없습니다.", HttpStatus.UNAUTHORIZED);
+    }
+    User existing = users.findByGoogleSubject(subject).orElse(null);
+    if (existing != null) return issue(existing);
+    String normalized = normalizeEmail(email);
+    if (users.existsByEmail(normalized)) {
+      throw new ApiException(
+          "GOOGLE_EMAIL_CONFLICT", "이미 이메일로 가입한 계정입니다. 이메일로 로그인해주세요.", HttpStatus.CONFLICT);
+    }
+    String displayName = name == null || name.isBlank() ? "Google 사용자" : name.trim();
+    if (displayName.length() > 80) displayName = displayName.substring(0, 80);
+    return issue(users.saveAndFlush(User.google(subject, normalized, displayName)));
   }
 
   public IssuedTokens refresh(String refreshToken) {
