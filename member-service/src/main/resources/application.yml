@@ -14,8 +14,24 @@ spring:
     baseline-on-migrate: true
 server:
   port: 8080
+  forward-headers-strategy: framework
+  servlet:
+    session:
+      timeout: 5m
+      cookie:
+        name: style_finder_oauth
+        http-only: true
+        same-site: lax
+        secure: ${REFRESH_COOKIE_SECURE:false}
 
 app:
+  oauth:
+    google:
+      enabled: ${GOOGLE_OAUTH_ENABLED:false}
+      client-id: ${GOOGLE_CLIENT_ID:}
+      client-secret: ${GOOGLE_CLIENT_SECRET:}
+      redirect-uri: ${GOOGLE_REDIRECT_URI:http://localhost/api/members/login/oauth2/code/google}
+      frontend-url: ${GOOGLE_FRONTEND_URL:http://localhost}
   security:
     private-key-path: ${JWT_PRIVATE_KEY_PATH:secrets/jwt-private.pem}
     public-key-path: ${JWT_PUBLIC_KEY_PATH:secrets/jwt-public.pem}

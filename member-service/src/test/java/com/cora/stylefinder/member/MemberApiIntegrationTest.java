@@ -13,6 +13,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.cora.stylefinder.member.activity.SavedResultRepository;
 import com.cora.stylefinder.member.activity.SearchHistoryRepository;
 import com.cora.stylefinder.member.auth.AuthService;
+import com.cora.stylefinder.member.auth.GoogleOAuthHandler;
+import com.cora.stylefinder.member.auth.RefreshCookieService;
 import com.cora.stylefinder.member.auth.RefreshTokenRepository;
 import com.cora.stylefinder.member.auth.dto.LoginRequest;
 import com.cora.stylefinder.member.member.UserRepository;
@@ -41,6 +43,12 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
+import org.springframework.mock.web.MockHttpServletRequest;
+import org.springframework.mock.web.MockHttpServletResponse;
+import org.springframework.mock.web.MockHttpSession;
+import org.springframework.security.oauth2.client.authentication.OAuth2AuthenticationToken;
+import org.springframework.security.oauth2.core.oidc.OidcIdToken;
+import org.springframework.security.oauth2.core.oidc.user.DefaultOidcUser;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
@@ -48,7 +56,15 @@ import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-@SpringBootTest(classes = {MemberServiceApplication.class, MemberApiIntegrationTest.AdminApi.class})
+@SpringBootTest(
+    classes = {MemberServiceApplication.class, MemberApiIntegrationTest.AdminApi.class},
+    properties = {
+      "app.oauth.google.enabled=true",
+      "app.oauth.google.client-id=test-client",
+      "app.oauth.google.client-secret=test-secret",
+      "app.oauth.google.frontend-url=http://localhost",
+      "app.oauth.google.redirect-uri=http://localhost/api/members/login/oauth2/code/google"
+    })
 @AutoConfigureMockMvc
 class MemberApiIntegrationTest {
   private static final KeyPaths KEY_PATHS = createKeys();
@@ -60,6 +76,7 @@ class MemberApiIntegrationTest {
   @Autowired SearchHistoryRepository histories;
   @Autowired SavedResultRepository savedResults;
   @Autowired AuthService auth;
+  @Autowired RefreshCookieService refreshCookie;
 
   @DynamicPropertySource
   static void jwtProperties(DynamicPropertyRegistry registry) {
@@ -73,6 +90,36 @@ class MemberApiIntegrationTest {
     histories.deleteAll();
     refreshTokens.deleteAll();
     users.deleteAll();
+  }
+
+  @Test
+  void googleStartUsesConfiguredCallbackAndStateAndRejectsUnsolicitedCallback() throws Exception {
+    mockMvc
+        .perform(get("/api/members/oauth2/status"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.enabled").value(true));
+    MvcResult start =
+        mockMvc
+            .perform(get("/api/members/oauth2/authorization/google"))
+            .andExpect(status().is3xxRedirection())
+            .andReturn();
+    String location = start.getResponse().getRedirectedUrl();
+    assertTrue(location.startsWith("https://accounts.google.com/"));
+    assertTrue(location.contains("state="));
+    assertTrue(location.contains("nonce="));
+    assertTrue(
+        java.net.URLDecoder.decode(location, java.nio.charset.StandardCharsets.UTF_8)
+            .contains("redirect_uri=http://localhost/api/members/login/oauth2/code/google"));
+    mockMvc
+        .perform(
+            get("/api/members/login/oauth2/code/google")
+                .param("code", "untrusted")
+                .param("state", "wrong"))
+        .andExpect(status().is3xxRedirection())
+        .andExpect(
+            org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl(
+                "http://localhost/?oauth=failed"));
+    assertTrue(users.count() == 0);
   }
 
   @Test
@@ -96,6 +143,42 @@ class MemberApiIntegrationTest {
             () -> auth.googleLogin("another-subject", "local@example.com", true, "이름"));
     Assertions.assertEquals("GOOGLE_EMAIL_CONFLICT", conflict.code());
     assertTrue(users.count() == 2);
+  }
+
+  @Test
+  void googleSuccessIssuesOnlyRefreshCookieAndInvalidatesTemporarySession() throws Exception {
+    var id =
+        OidcIdToken.withTokenValue("provider-token")
+            .subject("verified-subject")
+            .issuedAt(Instant.now())
+            .expiresAt(Instant.now().plusSeconds(300))
+            .claim("email", "google@example.com")
+            .claim("email_verified", true)
+            .claim("name", "Google 사용자")
+            .build();
+    var principal =
+        new DefaultOidcUser(
+            List.of(new org.springframework.security.oauth2.core.oidc.user.OidcUserAuthority(id)),
+            id);
+    var authentication =
+        new OAuth2AuthenticationToken(principal, principal.getAuthorities(), "google");
+    var request = new MockHttpServletRequest();
+    var temporary = new MockHttpSession();
+    request.setSession(temporary);
+    var response = new MockHttpServletResponse();
+    new GoogleOAuthHandler(auth, refreshCookie, "http://localhost/")
+        .onAuthenticationSuccess(request, response, authentication);
+    assertTrue(temporary.isInvalid());
+    Assertions.assertEquals("http://localhost/?oauth=success", response.getRedirectedUrl());
+    String cookie = response.getHeader("Set-Cookie");
+    assertTrue(cookie.contains("HttpOnly"));
+    mockMvc
+        .perform(
+            post("/api/members/token/refresh")
+                .cookie(
+                    new Cookie("style_finder_refresh", cookie.split(";", 2)[0].split("=", 2)[1])))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.accessToken").isNotEmpty());
   }
 
   @Test

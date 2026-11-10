@@ -33,6 +33,9 @@ Member JSON fields also use camelCase and are routed to Spring Boot.
 | `POST /api/members/token/refresh` | HttpOnly cookie | Rotate the refresh cookie and return a new access token |
 | `POST /api/members/logout` | Bearer + HttpOnly cookie | Revoke the refresh token and clear its cookie |
 | `GET /api/members/me` | Bearer access token | Return the current member |
+| `GET /api/members/oauth2/status` | Public | Report whether Google login is enabled |
+| `GET /api/members/oauth2/authorization/google` | Public when enabled | Start Google authorization with state and OIDC nonce |
+| `GET /api/members/login/oauth2/code/google` | OAuth state and authorization code | Validate Google identity, issue refresh cookie and redirect home |
 | `GET/POST/DELETE /api/members/search-histories` | Bearer access token | Paginated owned search histories |
 | `GET/POST/DELETE /api/members/saved-results` | Bearer access token | Paginated owned saved-result snapshots |
 
@@ -41,6 +44,9 @@ The refresh token uses an environment-configured HttpOnly, Secure, SameSite, Pat
 Access tokens are RS256 JWTs with issuer, audience, subject, role, type, issued-at and expiry claims.
 Spring Boot owns the private key and FastAPI verifies protected search routes with the public key.
 
+Google callbacks redirect to the configured frontend with `oauth=success`, `oauth=email_conflict`, or
+`oauth=failed`. No application tokens are included in the URL. The browser must restore the session
+through the refresh endpoint and `/me`. Existing email accounts are not automatically linked to Google.
 
 Activity list responses use `{ items, page, size, totalElements, totalPages }`. Saved results include
 `catalogItemId`, title and URLs, `similarityScore`, structured metadata, `modelVersion`, and

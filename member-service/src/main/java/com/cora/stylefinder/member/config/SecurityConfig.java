@@ -47,6 +47,7 @@ public class SecurityConfig {
                         "/health/**",
                         "/api/members/signup",
                         "/api/members/login",
+                        "/api/members/oauth2/status",
                         "/api/members/token/refresh")
                     .permitAll()
                     .requestMatchers("/api/members/admin/**")
