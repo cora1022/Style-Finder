@@ -19,7 +19,6 @@ from pathlib import Path
 import cv2
 import numpy as np
 from PIL import Image, UnidentifiedImageError
-from ultralytics import YOLO
 
 from backend.app.services.fashionclip_service import InvalidImageError
 
@@ -54,6 +53,8 @@ class OpenCvCropService:
             return
 
         if self.yolo_model_path and Path(self.yolo_model_path).exists():
+            from ultralytics import YOLO
+
             self.yolo_model = YOLO(self.yolo_model_path)
             return
 

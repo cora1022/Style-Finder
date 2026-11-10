@@ -6,7 +6,7 @@ requires-python = ">=3.12,<3.13"
 dependencies = [
   "anyio>=4.9,<5",
   "fastapi>=0.115,<1",
-  "opencv-python-headless>=4.11,<5",
+  "opencv-python>=4.11,<5",
   "pillow>=11.2,<12",
   "pydantic>=2.11,<3",
   "pyjwt[crypto]>=2.10,<3",
