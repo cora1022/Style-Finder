@@ -71,6 +71,11 @@ services:
       dockerfile: member-service/Dockerfile
     expose: ["8080"]
     environment:
+      GOOGLE_OAUTH_ENABLED: ${GOOGLE_OAUTH_ENABLED:-false}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      GOOGLE_REDIRECT_URI: ${GOOGLE_REDIRECT_URI:-http://localhost/api/members/login/oauth2/code/google}
+      GOOGLE_FRONTEND_URL: ${GOOGLE_FRONTEND_URL:-http://localhost}
       MEMBER_DB_URL: jdbc:mysql://mysql:3306/stylefinder_member?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
       MYSQL_USER: ${MYSQL_USER:-stylefinder}
       MYSQL_PASSWORD: ${MYSQL_PASSWORD:-change-me}
