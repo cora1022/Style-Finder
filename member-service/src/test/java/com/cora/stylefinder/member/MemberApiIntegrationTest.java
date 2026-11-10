@@ -110,6 +110,45 @@ class MemberApiIntegrationTest {
   }
 
   @Test
+  void signupReturnsFieldErrorsAndRejectsOverlongUtf8Password() throws Exception {
+    mockMvc
+        .perform(
+            post("/api/members/signup")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    objectMapper.writeValueAsString(new SignupPayload("invalid", "short", "   "))))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.error.fields.email").isNotEmpty())
+        .andExpect(jsonPath("$.error.fields.password").isNotEmpty())
+        .andExpect(jsonPath("$.error.fields.displayName").isNotEmpty());
+    mockMvc
+        .perform(
+            post("/api/members/signup")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    objectMapper.writeValueAsString(
+                        new SignupPayload("member@example.com", "가".repeat(25), "테스트"))))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.error.code").value("PASSWORD_TOO_LONG"));
+    assertTrue(users.count() == 0);
+  }
+
+  @Test
+  void signupTrimsNameAndEmailWithoutChangingPassword() throws Exception {
+    mockMvc
+        .perform(
+            post("/api/members/signup")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    objectMapper.writeValueAsString(
+                        new SignupPayload(" Member@Example.com ", "password123", " 테스트 사용자 "))))
+        .andExpect(status().isCreated())
+        .andExpect(jsonPath("$.email").value("member@example.com"))
+        .andExpect(jsonPath("$.displayName").value("테스트 사용자"));
+    login("member@example.com");
+  }
+
+  @Test
   void loginRejectsWrongPasswordWithStableError() throws Exception {
     signup("member@example.com").andExpect(status().isCreated());
 
@@ -431,7 +470,7 @@ class MemberApiIntegrationTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(payload)))
         .andExpect(status().isBadRequest())
-        .andExpect(jsonPath("$.error.code").value("VALIDATION_ERROR"));
+        .andExpect(jsonPath("$.error.fields['metadata.price']").isNotEmpty());
   }
 
   private String login(String email) throws Exception {

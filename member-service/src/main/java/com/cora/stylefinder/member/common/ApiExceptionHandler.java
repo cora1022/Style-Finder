@@ -1,6 +1,7 @@
 package com.cora.stylefinder.member.common;
 
 import jakarta.servlet.http.HttpServletRequest;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -20,8 +21,26 @@ public class ApiExceptionHandler {
   }
 
   @ExceptionHandler(MethodArgumentNotValidException.class)
-  ResponseEntity<Map<String, Object>> validation(HttpServletRequest request) {
-    return response(HttpStatus.BAD_REQUEST, "VALIDATION_ERROR", "요청 값을 확인해주세요.", request);
+  ResponseEntity<Map<String, Object>> validation(
+      MethodArgumentNotValidException exception, HttpServletRequest request) {
+    Map<String, String> fields = new LinkedHashMap<>();
+    exception
+        .getBindingResult()
+        .getFieldErrors()
+        .forEach(error -> fields.putIfAbsent(error.getField(), error.getDefaultMessage()));
+    return ResponseEntity.badRequest()
+        .body(
+            Map.of(
+                "error",
+                Map.of(
+                    "code",
+                    "VALIDATION_ERROR",
+                    "message",
+                    "요청 값을 확인해주세요.",
+                    "requestId",
+                    String.valueOf(request.getAttribute("requestId")),
+                    "fields",
+                    fields)));
   }
 
   @ExceptionHandler(Exception.class)

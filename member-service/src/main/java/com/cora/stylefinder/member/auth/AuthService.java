@@ -41,6 +41,7 @@ public class AuthService {
   }
 
   public MemberResponse signup(SignupRequest request) {
+    validatePasswordBytes(request.password());
     String email = normalizeEmail(request.email());
     if (users.existsByEmail(email)) {
       throw emailAlreadyExists();
@@ -54,6 +55,7 @@ public class AuthService {
   }
 
   public IssuedTokens login(LoginRequest request) {
+    validatePasswordBytes(request.password());
     User user =
         users.findByEmail(normalizeEmail(request.email())).orElseThrow(this::invalidCredentials);
     if (!encoder.matches(request.password(), user.getPasswordHash())) {
@@ -117,6 +119,13 @@ public class AuthService {
 
   private String normalizeEmail(String email) {
     return email.trim().toLowerCase(Locale.ROOT);
+  }
+
+  private void validatePasswordBytes(String password) {
+    if (password.getBytes(StandardCharsets.UTF_8).length > 72) {
+      throw new ApiException(
+          "PASSWORD_TOO_LONG", "비밀번호는 72바이트 이하로 입력해주세요.", HttpStatus.BAD_REQUEST);
+    }
   }
 
   private ApiException invalidCredentials() {
