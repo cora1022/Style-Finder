@@ -1,8 +1,8 @@
 # Local catalog
 
 Only images that you own or may redistribute belong in `catalog/images`. Copy
-`manifest.example.json` to the ignored `manifest.json`, add an item for every local
-image, and record its owner and license in `rights`.
+`manifest.example.json` to an ignored manifest, add an item for every local image,
+and record its owner and license in `rights`.
 
 The example manifest pins FashionCLIP to commit
 `7e3ba62ce16b379a1ab479346b66f192e76f51b7`. Keep the manifest revision and
@@ -16,36 +16,32 @@ uv run python -m backend.app.catalog.indexer validate --manifest catalog/manifes
 uv run python -m backend.app.catalog.indexer index --manifest catalog/manifest.json
 ```
 
-Use `--recreate` only when intentionally replacing an incompatible collection.
+For a custom manifest, set `CATALOG_MANIFEST_PATH` to that file when starting the
+backend. The current default is `catalog/generated/shopping-manifest.json`.
+The indexer and backend must use the same `CATALOG_INDEX_PATH` to share a cache.
+There is no collection, Qdrant connection or `--recreate` option.
 
 ## Local legacy Naver catalog
 
-Previously collected Naver Shopping crops may be used for local development only.
-Their redistribution rights are not assumed: `catalog/manifest.json` and every file
-under `catalog/images` are ignored by Git and must not be pushed to the public
-repository.
+Previously collected Naver Shopping crops and vectors are historical local data.
+Their redistribution rights and exact model revision are not established. The
+legacy importer has been removed, and these vectors are not loaded by the current
+search service. Do not publish them as a public catalog or relabel their revision.
 
-The migration tool does not call the Naver API or download product images. It copies
-only crop files already present on the local machine and reuses their existing
-FashionCLIP vectors from the legacy Qdrant collection.
+## Generated demo storefronts
 
-The exact FashionCLIP revision of those historical vectors is unknown. New output from the legacy
-importer is labeled `legacy-unverified`; it must not be renamed to the current pinned revision unless
-the images are re-embedded by that exact model commit.
+The `backend.app.catalog.import_shopping` command prepares the three demo stores
+from their local product catalogs. It converts WebP assets to JPEG and records
+store metadata and product detail links. Alternatively, `import_downloads` matches
+the original image filenames to those product catalogs.
 
-```powershell
-uv run python -m backend.app.catalog.import_legacy_naver prepare `
-  --source-url http://127.0.0.1:6335 `
-  --source-images ../OpenCV-pj-Fashion-Model/saved_cropped_images_fashionclip `
-  --target-images catalog/images `
-  --manifest catalog/manifest.json
+Both commands produce an ignored `catalog/generated/shopping-manifest.json` and
+images under `catalog/images/shopping`. See
+[shopping integration](../docs/SHOPPING_INTEGRATION.md) for validation and indexing.
+The backend loads normalized vectors into an in-process NumPy matrix and uses an
+`.npz` cache; it does not require a vector database.
 
-docker compose --env-file .env.example exec backend python -m backend.app.catalog.import_legacy_naver index-vectors `
-  --source-url http://host.docker.internal:6335 `
-  --target-url http://qdrant:6333 `
-  --manifest /app/catalog/manifest.json `
-  --recreate
-```
-
-Use the local catalog only as a temporary search demonstration. Replace it with a
-rights-cleared catalog before publishing images or deploying a public portfolio.
+The generated manifest records the supplied image provenance. These labels do not
+independently establish redistribution rights. Check the source and applicable
+terms before publishing the catalog. Search images, manifests and vectors remain
+outside Git and must be provisioned separately for deployment.

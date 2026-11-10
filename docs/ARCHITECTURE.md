@@ -29,8 +29,8 @@ local NumPy index. HOG is a person upper-body fallback, not a clothing detector.
 ## Health semantics
 
 FastAPI `/health/live` checks process liveness. `/health/ready` additionally requires the model, a
-loaded local manifest, local NumPy index connectivity, a non-empty compatible index and the expected
-model version.
+loaded local manifest and a non-empty index with the configured vector dimension. Model-version
+compatibility is checked against the manifest when loading the index, before it becomes available.
 
 The member service `/health/live` has no dependency checks. Its `/health/ready` executes a MySQL
 query and verifies that Flyway has a current migration with no pending versions. Caddy's public
