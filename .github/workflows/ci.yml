@@ -44,6 +44,26 @@ jobs:
         working-directory: member-service
         run: ./gradlew bootJar
 
+  service-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - run: uv sync --frozen
+      - name: Build real member service for isolated contract tests
+        run: docker build -t stylefinder-contract-member:test -f member-service/Dockerfile .
+      - run: uv run ruff check integration
+      - name: Verify Spring, FastAPI and MySQL contracts
+        run: uv run pytest integration/tests -q --junitxml=integration/results-ci.xml
+      - name: Upload contract test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: service-contract-results
+          path: integration/results-ci.xml
+          if-no-files-found: ignore
+
   container-and-policy:
     runs-on: ubuntu-latest
     steps:

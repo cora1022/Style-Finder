@@ -28,6 +28,7 @@ backend/models/*.pt
 secrets/
 *.pem
 *.tar.gz
+integration/results-*.xml
 
 # IDE / OS
 .idea/
