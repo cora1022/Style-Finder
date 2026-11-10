@@ -10,14 +10,43 @@ describe('App authentication lifecycle', () => {
     session.clear()
   })
 
+  it('does not authenticate from a Google success query without a valid server session', async () => {
+    window.history.replaceState(null, '', '/?oauth=success')
+    server.use(
+      http.post('/api/members/token/refresh', () =>
+        HttpResponse.json({ error: { code: 'REFRESH_TOKEN_INVALID' } }, { status: 401 }),
+      ),
+    )
+    render(<App />)
+    expect(await screen.findByRole('alert')).toHaveTextContent('로그인 정보를 확인하지 못했어요.')
+    expect(session.token).toBeNull()
+    expect(screen.queryByRole('button', { name: '로그아웃' })).not.toBeInTheDocument()
+    expect(window.location.search).toBe('')
+  })
+
+  it('explains a Google email collision and keeps the existing email login available', async () => {
+    window.history.replaceState(null, '', '/?oauth=email_conflict')
+    server.use(
+      http.post('/api/members/token/refresh', () =>
+        HttpResponse.json({ error: { code: 'REFRESH_TOKEN_INVALID' } }, { status: 401 }),
+      ),
+    )
+    render(<App />)
+    expect(await screen.findByRole('alert')).toHaveTextContent('이미 이메일로 가입한 계정이에요.')
+    expect(screen.getByLabelText('이메일')).toBeInTheDocument()
+    expect(window.location.search).toBe('')
+  })
+
   it('restores the member from a refresh cookie and calls logout on the server', async () => {
     let logoutCalls = 0
     server.use(
-      http.post('/api/members/token/refresh', () => HttpResponse.json({
-        accessToken: 'restored-access',
-        tokenType: 'Bearer',
-        expiresIn: 900,
-      })),
+      http.post('/api/members/token/refresh', () =>
+        HttpResponse.json({
+          accessToken: 'restored-access',
+          tokenType: 'Bearer',
+          expiresIn: 900,
+        }),
+      ),
       http.get('/api/members/me', ({ request }) => {
         expect(request.headers.get('Authorization')).toBe('Bearer restored-access')
         return HttpResponse.json({
@@ -44,14 +73,21 @@ describe('App authentication lifecycle', () => {
 
   it('keeps a guest on the landing page when no refresh cookie exists', async () => {
     server.use(
-      http.post('/api/members/token/refresh', () => HttpResponse.json({
-        error: { code: 'REFRESH_TOKEN_INVALID', message: '로그인이 필요합니다.' },
-      }, { status: 401 })),
+      http.post('/api/members/token/refresh', () =>
+        HttpResponse.json(
+          {
+            error: { code: 'REFRESH_TOKEN_INVALID', message: '로그인이 필요합니다.' },
+          },
+          { status: 401 },
+        ),
+      ),
     )
 
     render(<App />)
 
     expect(await screen.findByRole('button', { name: '로그인' })).toBeInTheDocument()
-    expect(screen.getByText('이미지로 찾는')).toBeInTheDocument()
+    expect(
+      screen.getByRole('heading', { name: '이 옷, 어디서 팔지?' }),
+    ).toBeInTheDocument()
   })
 })

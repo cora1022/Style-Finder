@@ -9,6 +9,7 @@ import {
   type SearchHistory,
 } from '../api/activity'
 import type { Member } from '../api/members'
+import { AppHeader } from './Ui'
 
 type Props = {
   member: Member
@@ -96,11 +97,7 @@ export function MyPage({ member, onBack, onSearchSaved }: Props) {
 
   return (
     <main className="my-page">
-      <header className="my-page-nav">
-        <button type="button" onClick={onBack}>STYLE FINDER</button>
-        <p>MY PAGE</p>
-        <button type="button" onClick={onBack}>메인으로 <span aria-hidden="true">↗</span></button>
-      </header>
+      <AppHeader onHome={onBack} />
 
       <section className="my-page-heading">
         <p><span>01</span> MEMBER PROFILE</p>

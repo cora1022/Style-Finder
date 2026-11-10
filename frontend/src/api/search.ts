@@ -5,6 +5,10 @@ export type CatalogMetadata = {
   category: string
   colors: string[]
   styleTags: string[]
+  storeId?: string | null
+  storeName?: string | null
+  productKey?: string | null
+  price?: number | null
 }
 
 export type SearchResult = {

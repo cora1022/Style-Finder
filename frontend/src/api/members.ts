@@ -23,22 +23,21 @@ type ErrorEnvelope = {
     code?: string
     message?: string
     requestId?: string
+    fields?: Record<string, string>
   }
 }
 
 export class MemberApiError extends Error {
   readonly code: string
   readonly status: number
+  readonly fields: Record<string, string>
 
-  constructor(
-    code: string,
-    message: string,
-    status: number,
-  ) {
+  constructor(code: string, message: string, status: number, fields: Record<string, string> = {}) {
     super(message)
     this.name = 'MemberApiError'
     this.code = code
     this.status = status
+    this.fields = fields
   }
 }
 
@@ -73,6 +72,7 @@ async function apiError(response: Response) {
     body.error?.code || 'MEMBER_REQUEST_FAILED',
     body.error?.message || '회원 요청을 처리하지 못했습니다.',
     response.status,
+    body.error?.fields,
   )
 }
 
@@ -87,6 +87,7 @@ function jsonHeaders(init: RequestInit) {
 async function publicRequest(path: string, init: RequestInit = {}) {
   const response = await fetch(memberUrl(path), {
     ...init,
+    signal: init.signal ?? AbortSignal.timeout(15000),
     credentials: 'include',
     headers: jsonHeaders(init),
   })
@@ -131,6 +132,7 @@ export async function authorizedFetch(input: RequestInfo | URL, init: RequestIni
     return response
   }
   response = await execute(accessToken)
+  if (response.status === 401) session.clear('expired')
   return response
 }
 
@@ -152,7 +154,10 @@ export function login(email: string, password: string): Promise<Member> {
       .then((response) => response.json() as Promise<TokenResponse>)
       .then((tokens) => {
         accessToken = tokens.accessToken
-        return me()
+        return me().catch((error) => {
+          accessToken = null
+          throw error
+        })
       })
       .finally(() => {
         loginPromise = null
@@ -196,6 +201,11 @@ export async function logout() {
 }
 
 export function memberErrorMessage(error: unknown, fallback: string) {
+  if (
+    error instanceof DOMException &&
+    (error.name === 'TimeoutError' || error.name === 'AbortError')
+  )
+    return '연결이 지연되고 있어요. 잠시 후 다시 시도해주세요.'
   if (!(error instanceof MemberApiError)) return fallback
   const messages: Record<string, string> = {
     INVALID_CREDENTIALS: '이메일 또는 비밀번호를 확인해주세요.',
@@ -203,6 +213,8 @@ export function memberErrorMessage(error: unknown, fallback: string) {
     REFRESH_TOKEN_INVALID: '로그인이 만료되었습니다. 다시 로그인해주세요.',
     REFRESH_TOKEN_EXPIRED: '로그인이 만료되었습니다. 다시 로그인해주세요.',
     VALIDATION_ERROR: '입력한 회원 정보를 확인해주세요.',
+    PASSWORD_TOO_LONG: '비밀번호는 72바이트 이하로 입력해주세요.',
   }
+  if (error.status >= 500) return '서버에 연결하지 못했어요. 잠시 후 다시 시도해주세요.'
   return messages[error.code] || error.message || fallback
 }

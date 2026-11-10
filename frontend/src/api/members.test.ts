@@ -13,9 +13,14 @@ describe('member session API', () => {
   })
 
   it('restores a member using the HttpOnly refresh cookie', async () => {
-    const fetchMock = vi.fn()
-      .mockResolvedValueOnce(jsonResponse({ accessToken: 'restored-access', tokenType: 'Bearer', expiresIn: 900 }))
-      .mockResolvedValueOnce(jsonResponse({ id: 1, email: 'member@example.com', displayName: '회원', role: 'USER' }))
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        jsonResponse({ accessToken: 'restored-access', tokenType: 'Bearer', expiresIn: 900 }),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({ id: 1, email: 'member@example.com', displayName: '회원', role: 'USER' }),
+      )
     vi.stubGlobal('fetch', fetchMock)
     const { restoreSession, session } = await import('./members')
 
@@ -39,7 +44,12 @@ describe('member session API', () => {
         return jsonResponse({ accessToken: 'old-access', tokenType: 'Bearer', expiresIn: 1 })
       }
       if (url.endsWith('/me')) {
-        return jsonResponse({ id: 1, email: 'member@example.com', displayName: '회원', role: 'USER' })
+        return jsonResponse({
+          id: 1,
+          email: 'member@example.com',
+          displayName: '회원',
+          role: 'USER',
+        })
       }
       if (url.endsWith('/token/refresh')) {
         refreshCalls += 1
@@ -66,9 +76,10 @@ describe('member session API', () => {
 
   it('clears memory after refresh failure without writing browser storage', async () => {
     const storageSpy = vi.spyOn(Storage.prototype, 'setItem')
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(
-      jsonResponse({ error: { code: 'REFRESH_TOKEN_INVALID' } }, 401),
-    ))
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(jsonResponse({ error: { code: 'REFRESH_TOKEN_INVALID' } }, 401)),
+    )
     const { restoreSession, session } = await import('./members')
 
     expect(await restoreSession()).toBeNull()
@@ -83,7 +94,12 @@ describe('member session API', () => {
         return jsonResponse({ accessToken: 'expired-access', tokenType: 'Bearer', expiresIn: 1 })
       }
       if (url.endsWith('/me')) {
-        return jsonResponse({ id: 1, email: 'member@example.com', displayName: '회원', role: 'USER' })
+        return jsonResponse({
+          id: 1,
+          email: 'member@example.com',
+          displayName: '회원',
+          role: 'USER',
+        })
       }
       return url.endsWith('/token/refresh')
         ? jsonResponse({ error: { code: 'REFRESH_TOKEN_EXPIRED' } }, 401)
@@ -100,5 +116,45 @@ describe('member session API', () => {
     expect(response.status).toBe(401)
     expect(session.token).toBeNull()
     expect(listener).toHaveBeenCalledWith('expired')
+  })
+
+  it('expires the session when a retried request still rejects the refreshed token', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = String(input)
+        if (url.endsWith('/login') || url.endsWith('/token/refresh'))
+          return jsonResponse({ accessToken: 'token', tokenType: 'Bearer', expiresIn: 900 })
+        if (url.endsWith('/me'))
+          return jsonResponse({
+            id: 1,
+            email: 'member@example.com',
+            displayName: '회원',
+            role: 'USER',
+          })
+        return jsonResponse({ error: { code: 'ACCESS_TOKEN_INVALID' } }, 401)
+      }),
+    )
+    const { login, authorizedFetch, session } = await import('./members')
+    await login('member@example.com', 'password123')
+    const listener = vi.fn()
+    session.subscribe(listener)
+    expect((await authorizedFetch('/protected')).status).toBe(401)
+    expect(session.token).toBeNull()
+    expect(listener).toHaveBeenCalledWith('expired')
+  })
+
+  it('does not keep an access token after the member lookup fails during login', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: RequestInfo | URL) =>
+        String(input).endsWith('/login')
+          ? jsonResponse({ accessToken: 'token', tokenType: 'Bearer', expiresIn: 900 })
+          : jsonResponse({ error: { code: 'INTERNAL_ERROR' } }, 500),
+      ),
+    )
+    const { login, session } = await import('./members')
+    await expect(login('member@example.com', 'password123')).rejects.toMatchObject({ status: 500 })
+    expect(session.token).toBeNull()
   })
 })

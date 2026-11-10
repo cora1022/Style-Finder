@@ -4,8 +4,9 @@ Style Finder의 React 사용자 인터페이스입니다.
 
 ## 현재 기능
 
-- 에디토리얼 스타일 서비스 랜딩 페이지
-- 흰색 기반 로그인 및 회원가입 모달
+- SNS 사진으로 옷을 찾는 서비스 랜딩과 움직이는 의류 배경
+- 크림색과 코랄색의 둥근 로그인 및 회원가입 화면
+- 서버 설정에 따른 Google 로그인과 인증 후 세션 복원
 - 비로그인 검색 시작 시 로그인 안내
 - 로그인 후 이미지 업로드와 검색 화면 전환
 - JPEG/PNG, 파일 크기, 이미지 픽셀 사전 검증
@@ -28,7 +29,8 @@ npm ci
 npm run dev
 ```
 
-기본 개발 주소는 `http://localhost:5173`입니다. Docker의 동일 출처 Caddy를 사용할 때
+기본 개발 주소는 `http://127.0.0.1:5173`입니다. `/api`와 `/health` 요청은
+`http://localhost`의 Caddy로 프록시하므로 전체 서비스도 실행해야 합니다. Docker의 동일 출처 Caddy를 사용할 때
 `VITE_API_BASE_URL`은 비워둘 수 있습니다.
 
 ## 검증
@@ -49,6 +51,8 @@ npm run build
 
 ## 이미지 자산
 
-`public/style-finder-hero.png`와 `public/style-finder-hero-v2.png`는 랜딩 페이지용
-프로젝트 비주얼입니다. 네이버 상품 크롭 이미지는 프론트 자산이나 Git 추적 대상에
-포함하지 않습니다.
+`public/assets/wardrobe`의 최적화된 WebP 10개를 랜딩 배경으로 사용합니다.
+자체 호스팅 글꼴과 라이선스는 `public/assets/fonts`에 있습니다. 기존
+`public/style-finder-hero*.png`는 이전 시안 자산입니다. 네이버 상품 크롭 이미지는
+프런트 자산에 포함하지 않습니다. 자세한 화면 구성은
+[프런트엔드 디자인 문서](../docs/FRONTEND_DESIGN.md)를 참고하세요.
