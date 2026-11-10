@@ -28,6 +28,10 @@ import java.security.spec.PKCS8EncodedKeySpec;
 import java.time.Instant;
 import java.util.Base64;
 import java.util.Date;
+import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -146,6 +150,36 @@ class MemberApiIntegrationTest {
         .andExpect(jsonPath("$.email").value("member@example.com"))
         .andExpect(jsonPath("$.displayName").value("테스트 사용자"));
     login("member@example.com");
+  }
+
+  @Test
+  void concurrentRefreshConsumesCookieOnlyOnce() throws Exception {
+    signup("member@example.com").andExpect(status().isCreated());
+    Cookie cookie =
+        loginResult("member@example.com").getResponse().getCookie("style_finder_refresh");
+    CountDownLatch ready = new CountDownLatch(2);
+    CountDownLatch start = new CountDownLatch(1);
+    try (var executor = Executors.newFixedThreadPool(2)) {
+      var task =
+          (java.util.concurrent.Callable<Integer>)
+              () -> {
+                ready.countDown();
+                if (!start.await(10, TimeUnit.SECONDS))
+                  throw new IllegalStateException("Refresh test timed out");
+                return mockMvc
+                    .perform(post("/api/members/token/refresh").cookie(cookie))
+                    .andReturn()
+                    .getResponse()
+                    .getStatus();
+              };
+      var first = executor.submit(task);
+      var second = executor.submit(task);
+      assertTrue(ready.await(10, TimeUnit.SECONDS));
+      start.countDown();
+      var statuses = List.of(first.get(20, TimeUnit.SECONDS), second.get(20, TimeUnit.SECONDS));
+      assertTrue(statuses.contains(200));
+      assertTrue(statuses.contains(401));
+    }
   }
 
   @Test
