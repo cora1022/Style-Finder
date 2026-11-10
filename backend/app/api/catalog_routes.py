@@ -17,7 +17,7 @@ async def search_catalog_item(
     top_k: int = Query(default=2, alias="topK", ge=1, le=20),
 ):
     results = await request.app.state.inference_executor.run(
-        request.app.state.qdrant_service.search_by_catalog_id,
+        request.app.state.catalog_search_service.search_by_catalog_id,
         catalog_item_id,
         top_k,
     )

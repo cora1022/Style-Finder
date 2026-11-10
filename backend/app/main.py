@@ -19,8 +19,8 @@ from backend.app.security.jwt_auth import AuthenticatedUser, JwtAccessVerifier, 
 from backend.app.services.fashionclip_service import FashionClipService
 from backend.app.services.image_validation import validate_upload
 from backend.app.services.inference_executor import InferenceExecutor
+from backend.app.services.local_catalog_search import LocalCatalogSearch
 from backend.app.services.opencv_crop_service import OpenCvCropService
-from backend.app.services.qdrant_service import QdrantSearchService
 
 logger = logging.getLogger("style_finder.api")
 
@@ -35,11 +35,11 @@ def _build_services(app: FastAPI, config: Settings) -> None:
         yolo_model_path=config.yolo_clothing_model_path,
         yolo_confidence=config.yolo_confidence,
     )
-    app.state.qdrant_service = QdrantSearchService(
-        host=config.qdrant_host,
-        port=config.qdrant_port,
-        collection_name=config.qdrant_collection_name,
-        url=config.qdrant_url,
+    app.state.catalog_search_service = LocalCatalogSearch(
+        config.catalog_manifest_path,
+        config.catalog_images_dir,
+        config.catalog_index_path,
+        app.state.fashionclip_service,
     )
     app.state.catalog_store = CatalogImageStore(
         config.catalog_manifest_path, config.catalog_images_dir
@@ -68,6 +68,8 @@ async def _load_local_services(app: FastAPI) -> None:
         logger.exception("Image crop detector initialization failed", exc_info=exc)
     try:
         app.state.catalog_store.load()
+        if app.state.fashionclip_service.loaded:
+            await anyio.to_thread.run_sync(app.state.catalog_search_service.load)
     except Exception as exc:
         logger.exception("Catalog manifest initialization failed", exc_info=exc)
 
@@ -123,18 +125,18 @@ def create_app(config: Settings | None = None, *, load_services: bool = True) ->
         model_ready = request.app.state.fashionclip_service.loaded
         catalog_ready = request.app.state.catalog_store.ready
         model_version = request.app.state.fashionclip_service.model_version
-        qdrant_status = await anyio.to_thread.run_sync(
-            request.app.state.qdrant_service.collection_status,
+        index_status = await anyio.to_thread.run_sync(
+            request.app.state.catalog_search_service.collection_status,
             active_settings.expected_vector_size,
             model_version,
         )
-        ready = model_ready and catalog_ready and qdrant_status["ready"]
+        ready = model_ready and catalog_ready and index_status["ready"]
         payload = {
             "status": "ready" if ready else "not_ready",
             "checks": {
                 "model": model_ready,
                 "catalogManifest": catalog_ready,
-                "qdrant": qdrant_status,
+                "localIndex": index_status,
             },
             "modelVersion": model_version,
         }
@@ -159,7 +161,7 @@ def create_app(config: Settings | None = None, *, load_services: bool = True) ->
 
         def perform_search():
             vector = request.app.state.fashionclip_service.embed_image_bytes(validated.content)
-            return request.app.state.qdrant_service.search_similar(vector, top_k=top_k)
+            return request.app.state.catalog_search_service.search_similar(vector, top_k=top_k)
 
         results = await request.app.state.inference_executor.run(perform_search)
         return ImageSearchResponse(results=results)
@@ -189,9 +191,7 @@ def create_app(config: Settings | None = None, *, load_services: bool = True) ->
             headers={
                 "X-Crop-Applied": str(metadata["crop_applied"]).lower(),
                 "X-Crop-Box": json.dumps(crop_box),
-                "X-Original-Size": (
-                    f"{metadata['original_width']}x{metadata['original_height']}"
-                ),
+                "X-Original-Size": (f"{metadata['original_width']}x{metadata['original_height']}"),
                 "X-Crop-Size": f"{crop_box['width']}x{crop_box['height']}",
                 "X-Crop-Detector": metadata.get("detector", "none"),
             },

@@ -1,0 +1,4 @@
+services:
+  backend:
+    environment:
+      CATALOG_MANIFEST_PATH: /app/catalog/generated/shopping-manifest.json

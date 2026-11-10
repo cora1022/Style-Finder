@@ -1,10 +1,10 @@
 # Style Finder
 
 사진에서 선택한 옷과 비슷한 카탈로그 이미지를 찾는 패션 이미지 유사도 검색
-포트폴리오입니다. OpenCV 기반 관심 영역 전처리, FashionCLIP 임베딩, Qdrant
+포트폴리오입니다. OpenCV 기반 관심 영역 전처리, FashionCLIP 임베딩, 로컬 벡터 인덱스
 벡터 검색에 Spring Boot 회원 서비스와 MySQL을 결합하고 있습니다.
 
-현재 React, FastAPI, Spring Boot, Qdrant, MySQL, Caddy가 하나의 Docker Compose
+현재 React, FastAPI, Spring Boot, MySQL, Caddy가 하나의 Docker Compose
 스택으로 실행됩니다. 서비스 경계, 서버 측 인증, 사용자별 활동 기능은 구현되어 있습니다.
 다만 단일 Compose에 배포하는 포트폴리오 기준선이며, 독립 배포와 운영 체계를 갖춘 완성형
 마이크로서비스라고 과장하지 않습니다.
@@ -24,7 +24,7 @@
 
 - FastAPI 업로드 검증과 안전한 오류 응답
 - OpenCV/YOLO 관심 영역 제안과 사람 상반신 HOG fallback
-- FashionCLIP 512차원 임베딩과 Qdrant 코사인 유사도 검색
+- FashionCLIP 512차원 임베딩과 NumPy 로컬 코사인 유사도 검색
 - 임의 URL 다운로드 API 제거와 로컬 manifest 기반 이미지 제공
 - 추론 thread offload, 동시 실행 제한, liveness/readiness
 - 대기열 timeout과 실제 실행 timeout 분리
@@ -63,7 +63,7 @@ Browser
   → Caddy
     → /                         React와 Nginx
     → /api/members/*            Spring Boot → MySQL
-    → /api/search/*             FastAPI → Qdrant
+    → /api/search/*             FastAPI → 로컬 벡터 인덱스
     → /api/preprocess/*         FastAPI
     → /api/catalog/*            FastAPI
 ```
@@ -108,14 +108,13 @@ cd ../member-service
 ./gradlew bootJar
 ```
 
-현재 FastAPI 테스트 21개, React 테스트 11개, Spring Boot H2와 단위 테스트 18개가
-실행됩니다. Docker 사용 가능 환경에서는 MySQL 8.4 Testcontainers migration 테스트
-1개가 추가로 실행됩니다.
+서비스별 테스트는 위 명령으로 실행합니다.
+
 
 ## 데이터 정책
 
 기존 네이버 쇼핑 API에서 수집한 크롭 이미지와 벡터는 로컬 기능 확인에만 사용합니다.
-이미지, 로컬 manifest, Qdrant 볼륨은 Git과 Docker 빌드 컨텍스트에서 제외됩니다.
+이미지, 로컬 manifest, 로컬 임베딩 캐시은 Git과 Docker 빌드 컨텍스트에서 제외됩니다.
 공개 저장소나 공개 배포에는 소유권 또는 재배포 권리가 확인된 카탈로그만 사용해야 합니다.
 
 자세한 정책은 [DATA_POLICY.md](docs/DATA_POLICY.md)를 참고하세요.
@@ -126,7 +125,7 @@ cd ../member-service
 - YOLO가 의류 클래스를 감지하지 못하면 원본 이미지를 유지합니다.
 - 새 공개 카탈로그는 FashionCLIP commit `7e3ba62ce16b379a1ab479346b66f192e76f51b7`로 고정합니다.
 - legacy 네이버 벡터의 정확한 FashionCLIP commit revision은 확인되지 않았습니다.
-- 일반 CI에서는 실제 모델 다운로드와 Qdrant 통합 검색을 수행하지 않습니다.
+- 일반 CI에서는 실제 모델 다운로드와 실제 로컬 이미지 검색을 수행하지 않습니다.
 - 공개 운영 전 로그인, 회원가입, 토큰 갱신에는 공유 저장소 기반 edge rate limit이 필요합니다.
 - cold start와 warm search 성능 측정은 권리 확보 카탈로그 준비 후 공개할 예정입니다.
 

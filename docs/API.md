@@ -9,7 +9,7 @@ All JSON fields use camelCase. Errors never expose internal exception text.
 | `POST /api/search/catalog/{catalogItemId}?topK=2` | Bearer access token; search from an indexed catalog vector, excluding itself |
 | `GET /api/catalog/items/{catalogItemId}/image` | Serve only a manifest-registered local image |
 | `GET /health/live` | Process liveness |
-| `GET /health/ready` | Model, manifest, Qdrant collection/version readiness |
+| `GET /health/ready` | Model, manifest, local NumPy index index/version readiness |
 
 `/api/search/image-url` was intentionally removed; the server never downloads arbitrary URLs.
 
@@ -41,6 +41,11 @@ The refresh token uses an environment-configured HttpOnly, Secure, SameSite, Pat
 Access tokens are RS256 JWTs with issuer, audience, subject, role, type, issued-at and expiry claims.
 Spring Boot owns the private key and FastAPI verifies protected search routes with the public key.
 
+
 Activity list responses use `{ items, page, size, totalElements, totalPages }`. Saved results include
 `catalogItemId`, title and URLs, `similarityScore`, structured metadata, `modelVersion`, and
 `createdAt`. Ownership is taken only from the authenticated principal.
+
+Saved metadata preserves `category`, `colors`, `styleTags` and optional `storeId`, `storeName`,
+`productKey`, and `price`. Missing shop fields remain nullable for older records. Prices must be
+non-negative. Cross-service contract tests compare the full metadata returned by search and storage.

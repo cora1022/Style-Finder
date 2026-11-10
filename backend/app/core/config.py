@@ -28,21 +28,19 @@ def _get_list(name: str, default: list[str]) -> list[str]:
 
 @dataclass(frozen=True)
 class Settings:
-    catalog_index_path: Path = field(
-        default_factory=lambda: Path(
-            os.getenv("CATALOG_INDEX_PATH", str(ROOT_DIR / "catalog/generated/embeddings.npz"))
-        )
-    )
     qdrant_url: str | None = field(default_factory=lambda: os.getenv("QDRANT_URL") or None)
     qdrant_host: str = field(default_factory=lambda: os.getenv("QDRANT_HOST", "localhost"))
     qdrant_port: int = field(default_factory=lambda: _get_int("QDRANT_PORT", 6333))
     qdrant_collection_name: str = field(
         default_factory=lambda: os.getenv("QDRANT_COLLECTION_NAME", "fashion_catalog_v1")
     )
-    fashionclip_model_name: str = field(
-        default_factory=lambda: os.getenv(
-            "FASHIONCLIP_MODEL_NAME", "patrickjohncyh/fashion-clip"
+    catalog_index_path: Path = field(
+        default_factory=lambda: Path(
+            os.getenv("CATALOG_INDEX_PATH", str(ROOT_DIR / "catalog/generated/embeddings.npz"))
         )
+    )
+    fashionclip_model_name: str = field(
+        default_factory=lambda: os.getenv("FASHIONCLIP_MODEL_NAME", "patrickjohncyh/fashion-clip")
     )
     fashionclip_model_revision: str = field(
         default_factory=lambda: os.getenv(
@@ -54,9 +52,7 @@ class Settings:
         default_factory=lambda: _get_int("FASHIONCLIP_VECTOR_SIZE", 512)
     )
     max_upload_bytes: int = field(default_factory=lambda: _get_int("MAX_UPLOAD_BYTES", 10_485_760))
-    max_image_pixels: int = field(
-        default_factory=lambda: _get_int("MAX_IMAGE_PIXELS", 16_000_000)
-    )
+    max_image_pixels: int = field(default_factory=lambda: _get_int("MAX_IMAGE_PIXELS", 16_000_000))
     inference_max_concurrency: int = field(
         default_factory=lambda: _get_int("INFERENCE_MAX_CONCURRENCY", 1)
     )
@@ -71,7 +67,10 @@ class Settings:
     )
     catalog_manifest_path: Path = field(
         default_factory=lambda: Path(
-            os.getenv("CATALOG_MANIFEST_PATH", str(ROOT_DIR / "catalog" / "manifest.json"))
+            os.getenv(
+                "CATALOG_MANIFEST_PATH",
+                str(ROOT_DIR / "catalog" / "generated" / "shopping-manifest.json"),
+            )
         )
     )
     catalog_images_dir: Path = field(
@@ -110,9 +109,7 @@ class Settings:
     jwt_issuer: str = field(
         default_factory=lambda: os.getenv("JWT_ISSUER", "style-finder-member-service")
     )
-    jwt_audience: str = field(
-        default_factory=lambda: os.getenv("JWT_AUDIENCE", "style-finder-api")
-    )
+    jwt_audience: str = field(default_factory=lambda: os.getenv("JWT_AUDIENCE", "style-finder-api"))
 
 
 settings = Settings()

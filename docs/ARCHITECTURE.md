@@ -7,7 +7,7 @@ Browser
   → Caddy
     → /                         React static files (Nginx)
     → /api/members/*            Spring Boot → MySQL
-    → /api/search/*             FastAPI → FashionCLIP → Qdrant
+    → /api/search/*             FastAPI → FashionCLIP → local NumPy index
     → /api/preprocess/*         FastAPI → OpenCV/YOLO
     → /api/catalog/*            FastAPI → local manifest images
 ```
@@ -19,17 +19,17 @@ The applications do not share a database.
 |---|---|---|
 | React | Landing, auth session, upload/crop/search, history, saved results and My Page | Access token in memory only |
 | Spring Boot | Members, RS256 token issuer, refresh sessions and user-owned activity | MySQL and private signing key volume |
-| FastAPI | Access-token verification, image validation, crop, embedding and vector search | Qdrant, local catalog and public verification key volume |
-| Catalog indexer | Manifest validation and idempotent vector indexing | Local files → Qdrant |
+| FastAPI | Access-token verification, image validation, crop, embedding and vector search | local NumPy index, local catalog and public verification key volume |
+| Catalog indexer | Manifest validation and idempotent vector indexing | Local files → local NumPy index |
 | Caddy | Same-origin routing and request-size boundary | None |
 
 FastAPI never downloads arbitrary result URLs. Catalog-ID re-search uses a vector already stored in
-Qdrant. HOG is a person upper-body fallback, not a clothing detector.
+local NumPy index. HOG is a person upper-body fallback, not a clothing detector.
 
 ## Health semantics
 
 FastAPI `/health/live` checks process liveness. `/health/ready` additionally requires the model, a
-loaded local manifest, Qdrant connectivity, a non-empty compatible collection and the expected
+loaded local manifest, local NumPy index connectivity, a non-empty compatible index and the expected
 model version.
 
 The member service `/health/live` has no dependency checks. Its `/health/ready` executes a MySQL
@@ -49,5 +49,5 @@ memory, and coalesces concurrent 401 responses into one refresh request.
 
 Search histories and saved-result snapshots use concrete DTOs and paginated user-ID repository
 queries. JSON metadata is serialized with Jackson. Cross-user reads and deletes are hidden as 404,
-and duplicate saves return 409. Spring Boot does not read Qdrant; React sends a result snapshot after
+and duplicate saves return 409. Spring Boot does not read local NumPy index; React sends a result snapshot after
 FastAPI search succeeds.

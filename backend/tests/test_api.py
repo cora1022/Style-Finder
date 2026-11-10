@@ -14,7 +14,7 @@ class FakeModel:
         return [1.0, 0.0]
 
 
-class FakeQdrant:
+class FakeLocalSearch:
     def collection_status(self, _size, _version):
         return {"ready": True, "reason": "ready"}
 
@@ -34,7 +34,7 @@ class FakeQdrant:
 def test_image_search_uses_camel_case_contract(jpeg_bytes, jwt_context):
     app = create_app(config=jwt_context.settings, load_services=False)
     app.state.fashionclip_service = FakeModel()
-    app.state.qdrant_service = FakeQdrant()
+    app.state.catalog_search_service = FakeLocalSearch()
     with TestClient(app) as client:
         response = client.post(
             "/api/search/image?topK=2",
@@ -58,7 +58,7 @@ def test_removed_remote_url_endpoint_returns_404():
 def test_internal_exception_is_not_exposed(jpeg_bytes, jwt_context):
     app = create_app(config=jwt_context.settings, load_services=False)
     app.state.fashionclip_service = FakeModel()
-    app.state.qdrant_service = SimpleNamespace(
+    app.state.catalog_search_service = SimpleNamespace(
         search_similar=lambda *_args, **_kwargs: (_ for _ in ()).throw(
             RuntimeError("C:/secret/api-key")
         )

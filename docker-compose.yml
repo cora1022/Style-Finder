@@ -35,7 +35,6 @@ services:
       dockerfile: backend/Dockerfile
     expose: ["8000"]
     environment:
-      QDRANT_URL: http://qdrant:6333
       YOLO_CLOTHING_MODEL_PATH: ${YOLO_CLOTHING_MODEL_PATH:-backend/models/yolov8n-clothing-detection-best.pt}
       HF_HOME: /app/.cache/huggingface
       MAX_UPLOAD_BYTES: ${MAX_UPLOAD_BYTES:-10485760}
@@ -43,7 +42,10 @@ services:
       INFERENCE_MAX_CONCURRENCY: ${INFERENCE_MAX_CONCURRENCY:-1}
       INFERENCE_QUEUE_TIMEOUT_SECONDS: ${INFERENCE_QUEUE_TIMEOUT_SECONDS:-5}
       SEARCH_TIMEOUT_SECONDS: ${SEARCH_TIMEOUT_SECONDS:-45}
-      CATALOG_MANIFEST_PATH: /app/catalog/manifest.json
+      CATALOG_MANIFEST_PATH: /app/catalog/generated/shopping-manifest.json
+      CATALOG_INDEX_PATH: /app/.cache/huggingface/shopping-embeddings.npz
+      OMP_NUM_THREADS: 2
+      MKL_NUM_THREADS: 2
       CATALOG_IMAGES_DIR: /app/catalog/images
       JWT_PUBLIC_KEY_PATH: /run/jwt-public/public.pem
       JWT_ISSUER: ${JWT_ISSUER:-style-finder-member-service}
@@ -53,7 +55,6 @@ services:
       - ./catalog:/app/catalog:ro
       - jwt_public:/run/jwt-public:ro
     depends_on:
-      qdrant: { condition: service_healthy }
       jwt-keygen: { condition: service_completed_successfully }
     healthcheck:
       test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health/live')\""]
@@ -62,19 +63,6 @@ services:
       retries: 5
     cpus: ${BACKEND_CPUS:-2}
     mem_limit: ${BACKEND_MEMORY:-4g}
-    restart: unless-stopped
-
-  qdrant:
-    image: qdrant/qdrant:v1.18.1
-    expose: ["6333", "6334"]
-    volumes: ["qdrant_storage:/qdrant/storage"]
-    healthcheck:
-      test: ["CMD-SHELL", "bash -c '</dev/tcp/127.0.0.1/6333'"]
-      interval: 10s
-      timeout: 3s
-      retries: 10
-    cpus: ${QDRANT_CPUS:-1}
-    mem_limit: ${QDRANT_MEMORY:-1g}
     restart: unless-stopped
 
   member-service:
@@ -148,7 +136,6 @@ volumes:
   caddy_data:
   caddy_config:
   hf_cache:
-  qdrant_storage:
   mysql_data:
   jwt_private:
   jwt_public:
