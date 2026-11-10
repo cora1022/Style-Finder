@@ -8,6 +8,10 @@ class CatalogMetadata(BaseModel):
     category: str = Field(min_length=1)
     colors: list[str] = Field(default_factory=list)
     style_tags: list[str] = Field(default_factory=list, alias="styleTags")
+    store_id: str | None = Field(default=None, alias="storeId")
+    store_name: str | None = Field(default=None, alias="storeName")
+    product_key: str | None = Field(default=None, alias="productKey")
+    price: int | None = Field(default=None, ge=0)
 
     model_config = ConfigDict(populate_by_name=True)
 

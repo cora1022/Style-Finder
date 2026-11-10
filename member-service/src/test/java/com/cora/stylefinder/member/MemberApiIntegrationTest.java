@@ -396,6 +396,44 @@ class MemberApiIntegrationTest {
                     new SignupPayload(email, "password123", "테스트 사용자"))));
   }
 
+  @Test
+  void savedResultsPreserveShopMetadataAndRejectNegativePrices() throws Exception {
+    signup("metadata@example.com").andExpect(status().isCreated());
+    String accessToken = login("metadata@example.com");
+    var payload =
+        (com.fasterxml.jackson.databind.node.ObjectNode)
+            objectMapper.readTree(savedResultJson("metadata-shirt", 0.91));
+    var metadata = (com.fasterxml.jackson.databind.node.ObjectNode) payload.get("metadata");
+    metadata.put("storeId", "shop1");
+    metadata.put("storeName", "MODO");
+    metadata.put("productKey", "t01");
+    metadata.put("price", 59000);
+    mockMvc
+        .perform(
+            post("/api/members/saved-results")
+                .header("Authorization", "Bearer " + accessToken)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(payload)))
+        .andExpect(status().isCreated());
+    mockMvc
+        .perform(get("/api/members/saved-results").header("Authorization", "Bearer " + accessToken))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.items[0].metadata.storeId").value("shop1"))
+        .andExpect(jsonPath("$.items[0].metadata.storeName").value("MODO"))
+        .andExpect(jsonPath("$.items[0].metadata.productKey").value("t01"))
+        .andExpect(jsonPath("$.items[0].metadata.price").value(59000));
+    payload.put("catalogItemId", "invalid-price-shirt");
+    metadata.put("price", -1);
+    mockMvc
+        .perform(
+            post("/api/members/saved-results")
+                .header("Authorization", "Bearer " + accessToken)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(payload)))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.error.code").value("VALIDATION_ERROR"));
+  }
+
   private String login(String email) throws Exception {
     MvcResult result = loginResult(email);
     JsonNode response = objectMapper.readTree(result.getResponse().getContentAsString());

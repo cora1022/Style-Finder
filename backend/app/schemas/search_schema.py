@@ -15,6 +15,10 @@ class CatalogMetadata(ApiModel):
     category: str
     colors: list[str] = Field(default_factory=list)
     style_tags: list[str] = Field(default_factory=list)
+    store_id: str | None = None
+    store_name: str | None = None
+    product_key: str | None = None
+    price: int | None = Field(default=None, ge=0)
 
 
 class ImageSearchResult(ApiModel):
