@@ -6,8 +6,41 @@
 
 현재 React, FastAPI, Spring Boot, MySQL, Caddy가 하나의 Docker Compose
 스택으로 실행됩니다. 서비스 경계, 서버 측 인증, 사용자별 활동 기능은 구현되어 있습니다.
-다만 단일 Compose에 배포하는 포트폴리오 기준선이며, 독립 배포와 운영 체계를 갖춘 완성형
-마이크로서비스라고 과장하지 않습니다.
+
+## 서비스 소개
+
+SNS에서 본 사진 속 옷이 궁금할 때, 사진을 올리고 찾고 싶은 옷의 영역을 선택하면
+비슷한 상품을 찾아주는 서비스입니다. 검색 결과에서 상품 이미지와 가격, 판매처를
+확인하고 가상 쇼핑몰의 해당 상품 상세 페이지로 이동할 수 있습니다.
+
+[Style Finder 열기](https://fashion.cora1022.com/)
+
+### 메인화면
+
+![Style Finder 사진 업로드 화면](docs/images/style-finder-home.png)
+
+### 영역 선택과 검색 결과
+
+사진에서 검색할 영역을 자동으로 제안받거나 직접 조절할 수 있습니다. 선택한 영역을
+기준으로 유사한 상품을 찾고, 결과를 저장하거나 비슷한 상품을 다시 검색할 수 있습니다.
+
+| 옷 영역 선택 | 유사 상품 검색 결과 |
+|---|---|
+| ![사진에서 검색할 옷 영역을 선택하는 화면](docs/images/style-finder-crop.png) | ![유사한 옷과 판매처를 보여주는 검색 결과 화면](docs/images/style-finder-results.png) |
+
+## 가상 쇼핑몰
+
+처음에는 네이버 쇼핑 API에서 상품 정보를 가져왔습니다. 외부 상품 이미지의 저작권과
+재배포 문제, API 의존성을 고려해 생성형 의류 이미지로 포트폴리오용 쇼핑몰 세 곳을
+직접 만들고 검색 서비스에 연결했습니다.
+
+각 쇼핑몰은 서로 다른 디자인의 정적 웹으로, 상품마다 고유한 상세 페이지가 있습니다.
+총 80개 상품을 검색 카탈로그에 등록했으며, 검색 결과의 `상품 보러 가기`를 누르면
+해당 상품 페이지로 이동합니다.
+
+| [MODO](https://shop1.cora1022.com/) | [FORM:01](https://shop2.cora1022.com/) | [COMMON ROOM](https://shop3.cora1022.com/) |
+|---|---|---|
+| [![MODO 가상 쇼핑몰 화면](docs/images/shop1-modo.png)](https://shop1.cora1022.com/) | [![FORM:01 가상 쇼핑몰 화면](docs/images/shop2-form01.png)](https://shop2.cora1022.com/) | [![COMMON ROOM 가상 쇼핑몰 화면](docs/images/shop3-common-room.png)](https://shop3.cora1022.com/) |
 
 ## 현재 구현
 
@@ -23,7 +56,7 @@
 ### 이미지 검색 서비스
 
 - FastAPI 업로드 검증과 안전한 오류 응답
-- OpenCV/YOLO 관심 영역 제안과 사람 상반신 HOG fallback
+- OpenCV HOG 기반 사람 상반신 추정과 YOLO 모델을 이용한 의류 영역 제안
 - FashionCLIP 512차원 임베딩과 NumPy 로컬 코사인 유사도 검색
 - 임의 URL 다운로드 API 제거와 로컬 manifest 기반 이미지 제공
 - 추론 thread offload, 동시 실행 제한, liveness/readiness
@@ -31,7 +64,7 @@
 - 권리 메타데이터 기반 카탈로그 인덱서와 가상 쇼핑몰 이미지 가져오기
 - Spring Boot가 발급한 RS256 Access Token을 이용한 검색과 크롭 API 보호
 
-### 회원 서비스 기준선
+### 회원 서비스
 
 - Spring Boot 3, Java 21, Spring Security
 - 회원가입, 로그인, 내 정보 조회
@@ -46,12 +79,6 @@
 - JSON metadata 직렬화와 사용자별 접근 차단
 - H2 통합 테스트와 MySQL Testcontainers migration 테스트
 - MySQL과 Flyway 기반 readiness
-
-## 아직 완료되지 않은 기능
-
-- 생성형 데모 카탈로그의 공개 배포용 출처 및 이용 조건 정리
-- 실제 질의 사진 기준의 검색 품질 및 성능 측정과 최신 화면 자료
-- `fashion.cora1022.com` VPS 배포와 운영 환경 검증
 
 React는 검색과 크롭 요청에 Access Token을 전달하고, FastAPI는 Spring Boot와 공개키를
 공유해 서명과 표준 claim을 검증합니다. Refresh Token 원문은 JSON에 포함하지 않고
@@ -88,8 +115,7 @@ docker compose --env-file .env.example ps
 
 접속 주소는 `http://localhost`입니다.
 
-권리 확보 카탈로그가 없는 새 환경에서는 랜딩, 회원, 크롭 기능은 실행되지만
-`/health/ready`가 503을 반환하고 검색 결과는 제공되지 않습니다. 카탈로그 준비 방법은
+검색을 사용하려면 로컬 카탈로그와 이미지가 필요합니다. 카탈로그 준비 방법은
 [catalog/README.md](catalog/README.md)를 참고하세요.
 
 ## 검증
@@ -115,27 +141,3 @@ cd ../member-service
 1개가 추가로 실행됩니다.
 
 별도 서비스 연동 테스트는 실제 Spring Boot와 MySQL을 실행해 FastAPI 인증, 검색 결과 저장과 사용자 데이터 격리를 검증합니다. 실행 방법과 테스트 대역의 범위는 [테스트 문서](docs/TESTING.md)를 참고하세요.
-
-## 데이터 정책
-
-현재 검색은 가상 쇼핑몰 3개의 생성형 의류 이미지 카탈로그를 사용하며, 네이버 API와
-Qdrant를 호출하지 않습니다. 검색용 이미지, 로컬 manifest와 임베딩 캐시는 Git과 Docker
-빌드 컨텍스트에서 제외됩니다. 화면용으로 포함한 배경 이미지와 글꼴은 별도 앱 자산입니다.
-공개 저장소나 공개 배포에는 소유권 또는 재배포 권리가 확인된 카탈로그만 사용해야 합니다.
-
-자세한 정책은 [DATA_POLICY.md](docs/DATA_POLICY.md)를 참고하세요.
-
-## 알려진 제한
-
-- HOG fallback은 의류 탐지가 아니라 사람 상반신 추정입니다.
-- YOLO가 의류 클래스를 감지하지 못하면 원본 이미지를 유지합니다.
-- 새 공개 카탈로그는 FashionCLIP commit `7e3ba62ce16b379a1ab479346b66f192e76f51b7`로 고정합니다.
-- 과거 네이버 이미지와 벡터는 공개 카탈로그로 사용하지 않으며 이전 가져오기 도구도 제거했습니다.
-- 일반 CI에서는 실제 모델 다운로드와 실제 로컬 이미지 검색을 수행하지 않습니다.
-- 공개 운영 전 로그인, 회원가입, 토큰 갱신에는 공유 저장소 기반 edge rate limit이 필요합니다.
-- cold start와 warm search 성능, 실제 질의 사진의 검색 품질은 아직 측정하지 않았습니다.
-- NumPy 검색 선택과 재검토 기준은 [ADR 0004](docs/adr/0004-local-catalog-search.md)에 정리했습니다.
-
-## Repository
-
-https://github.com/cora1022/OpenCV-pj-Fashion-Model
